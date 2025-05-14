@@ -1,3 +1,6 @@
-# Unkey API Docs
+# Fumadocs OpenAPI Error
 
-This is an example API documentation based on Unkey's [API documentation](https://github.com/unkeyed/unkey), using Fumadocs OpenAPI.
+1. Download the repo 
+2. install deps
+3. pnpm dev
+4. navigate to http://localhost:3000/docs/show-consent-banner
