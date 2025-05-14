@@ -1,0 +1,930 @@
+{
+	"info": {
+		"title": "c15t API",
+		"version": "1.2.1",
+		"description": "API for consent management"
+	},
+	"servers": [{ "url": "/" }],
+	"security": [{ "bearerAuth": [] }],
+	"openapi": "3.1.1",
+	"paths": {
+		"/consent/set": {
+			"post": {
+				"operationId": "consent.post",
+				"description": "Records a user's consent preferences and creates necessary consent records.\nThis endpoint handles various types of consent submissions:\n\n1. Cookie Banner Consent:\n   - Records granular cookie preferences\n   - Supports multiple consent purposes\n   - Creates audit trail for compliance\n\n2. Policy-Based Consent:\n   - Privacy Policy acceptance\n   - Data Processing Agreement (DPA) consent\n   - Terms and Conditions acceptance\n   - Links consent to specific policy versions\n\n3. Other Consent Types:\n   - Marketing communications preferences\n   - Age verification consent\n   - Custom consent types\n\nThe endpoint performs the following operations:\n- Creates or retrieves subject records\n- Validates domain and policy information\n- Creates consent records with audit trails\n- Records consent purposes and preferences\n- Generates audit logs for compliance\n\nUse this endpoint to record user consent and maintain a compliant consent management system.",
+				"tags": ["consent", "cookie-banner"],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"anyOf": [
+									{
+										"type": "object",
+										"properties": {
+											"subjectId": { "type": "string" },
+											"externalSubjectId": { "type": "string" },
+											"domain": { "type": "string" },
+											"type": { "const": "cookie_banner" },
+											"metadata": {
+												"type": "object",
+												"additionalProperties": {}
+											},
+											"preferences": {
+												"type": "object",
+												"additionalProperties": { "type": "boolean" }
+											}
+										},
+										"required": ["domain", "type", "preferences"]
+									},
+									{
+										"type": "object",
+										"properties": {
+											"subjectId": { "type": "string" },
+											"externalSubjectId": { "type": "string" },
+											"domain": { "type": "string" },
+											"type": {
+												"enum": [
+													"privacy_policy",
+													"dpa",
+													"terms_and_conditions"
+												]
+											},
+											"metadata": {
+												"type": "object",
+												"additionalProperties": {}
+											},
+											"policyId": { "type": "string" },
+											"preferences": {
+												"type": "object",
+												"additionalProperties": { "type": "boolean" }
+											}
+										},
+										"required": ["domain", "type"]
+									},
+									{
+										"type": "object",
+										"properties": {
+											"subjectId": { "type": "string" },
+											"externalSubjectId": { "type": "string" },
+											"domain": { "type": "string" },
+											"type": {
+												"enum": [
+													"marketing_communications",
+													"age_verification",
+													"other"
+												]
+											},
+											"metadata": {
+												"type": "object",
+												"additionalProperties": {}
+											},
+											"preferences": {
+												"type": "object",
+												"additionalProperties": { "type": "boolean" }
+											}
+										},
+										"required": ["domain", "type"]
+									}
+								]
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "OK",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"id": { "type": "string" },
+										"subjectId": { "type": "string" },
+										"externalSubjectId": { "type": "string" },
+										"domainId": { "type": "string" },
+										"domain": { "type": "string" },
+										"type": {
+											"enum": [
+												"cookie_banner",
+												"privacy_policy",
+												"dpa",
+												"terms_and_conditions",
+												"marketing_communications",
+												"age_verification",
+												"other"
+											]
+										},
+										"status": { "type": "string" },
+										"recordId": { "type": "string" },
+										"metadata": {
+											"type": "object",
+											"additionalProperties": {}
+										},
+										"givenAt": { "type": "string", "format": "date-time" }
+									},
+									"required": [
+										"id",
+										"domainId",
+										"domain",
+										"type",
+										"status",
+										"recordId",
+										"givenAt"
+									]
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "400",
+						"content": {
+							"application/json": {
+								"schema": {
+									"oneOf": [
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": true },
+												"code": { "const": "SUBJECT_CREATION_FAILED" },
+												"status": { "const": 400 },
+												"message": {
+													"type": "string",
+													"default": "Failed to create or find subject"
+												},
+												"data": {
+													"type": "object",
+													"properties": {
+														"subjectId": { "type": "string" },
+														"externalSubjectId": { "type": "string" }
+													}
+												}
+											},
+											"required": [
+												"defined",
+												"code",
+												"status",
+												"message",
+												"data"
+											]
+										},
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": false },
+												"code": { "type": "string" },
+												"status": { "type": "number" },
+												"message": { "type": "string" },
+												"data": {}
+											},
+											"required": ["defined", "code", "status", "message"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "404",
+						"content": {
+							"application/json": {
+								"schema": {
+									"oneOf": [
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": true },
+												"code": { "const": "POLICY_NOT_FOUND" },
+												"status": { "const": 404 },
+												"message": {
+													"type": "string",
+													"default": "Policy not found"
+												},
+												"data": {
+													"type": "object",
+													"properties": {
+														"policyId": { "type": "string" },
+														"type": { "type": "string" }
+													},
+													"required": ["policyId", "type"]
+												}
+											},
+											"required": [
+												"defined",
+												"code",
+												"status",
+												"message",
+												"data"
+											]
+										},
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": false },
+												"code": { "type": "string" },
+												"status": { "type": "number" },
+												"message": { "type": "string" },
+												"data": {}
+											},
+											"required": ["defined", "code", "status", "message"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"409": {
+						"description": "409",
+						"content": {
+							"application/json": {
+								"schema": {
+									"oneOf": [
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": true },
+												"code": { "const": "POLICY_INACTIVE" },
+												"status": { "const": 409 },
+												"message": {
+													"type": "string",
+													"default": "Policy is not active"
+												},
+												"data": {
+													"type": "object",
+													"properties": {
+														"policyId": { "type": "string" },
+														"type": { "type": "string" }
+													},
+													"required": ["policyId", "type"]
+												}
+											},
+											"required": [
+												"defined",
+												"code",
+												"status",
+												"message",
+												"data"
+											]
+										},
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": false },
+												"code": { "type": "string" },
+												"status": { "type": "number" },
+												"message": { "type": "string" },
+												"data": {}
+											},
+											"required": ["defined", "code", "status", "message"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"422": {
+						"description": "422",
+						"content": {
+							"application/json": {
+								"schema": {
+									"oneOf": [
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": true },
+												"code": { "const": "INPUT_VALIDATION_FAILED" },
+												"status": { "const": 422 },
+												"message": {
+													"type": "string",
+													"default": "Invalid input parameters"
+												},
+												"data": {
+													"type": "object",
+													"properties": {
+														"formErrors": {
+															"type": "array",
+															"items": { "type": "string" }
+														},
+														"fieldErrors": {
+															"type": "object",
+															"additionalProperties": {
+																"type": "array",
+																"items": { "type": "string" }
+															}
+														}
+													},
+													"required": ["formErrors", "fieldErrors"]
+												}
+											},
+											"required": [
+												"defined",
+												"code",
+												"status",
+												"message",
+												"data"
+											]
+										},
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": false },
+												"code": { "type": "string" },
+												"status": { "type": "number" },
+												"message": { "type": "string" },
+												"data": {}
+											},
+											"required": ["defined", "code", "status", "message"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "500",
+						"content": {
+							"application/json": {
+								"schema": {
+									"oneOf": [
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": true },
+												"code": { "const": "DOMAIN_CREATION_FAILED" },
+												"status": { "const": 500 },
+												"message": {
+													"type": "string",
+													"default": "Failed to create or find domain"
+												},
+												"data": {
+													"type": "object",
+													"properties": { "domain": { "type": "string" } },
+													"required": ["domain"]
+												}
+											},
+											"required": [
+												"defined",
+												"code",
+												"status",
+												"message",
+												"data"
+											]
+										},
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": true },
+												"code": { "const": "POLICY_CREATION_FAILED" },
+												"status": { "const": 500 },
+												"message": {
+													"type": "string",
+													"default": "Failed to create or find policy"
+												},
+												"data": {
+													"type": "object",
+													"properties": { "type": { "type": "string" } },
+													"required": ["type"]
+												}
+											},
+											"required": [
+												"defined",
+												"code",
+												"status",
+												"message",
+												"data"
+											]
+										},
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": true },
+												"code": { "const": "PURPOSE_CREATION_FAILED" },
+												"status": { "const": 500 },
+												"message": {
+													"type": "string",
+													"default": "Failed to create consent purpose"
+												},
+												"data": {
+													"type": "object",
+													"properties": { "purposeCode": { "type": "string" } },
+													"required": ["purposeCode"]
+												}
+											},
+											"required": [
+												"defined",
+												"code",
+												"status",
+												"message",
+												"data"
+											]
+										},
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": true },
+												"code": { "const": "CONSENT_CREATION_FAILED" },
+												"status": { "const": 500 },
+												"message": {
+													"type": "string",
+													"default": "Failed to create consent record"
+												},
+												"data": {
+													"type": "object",
+													"properties": {
+														"subjectId": { "type": "string" },
+														"domain": { "type": "string" }
+													},
+													"required": ["subjectId", "domain"]
+												}
+											},
+											"required": [
+												"defined",
+												"code",
+												"status",
+												"message",
+												"data"
+											]
+										},
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": false },
+												"code": { "type": "string" },
+												"status": { "type": "number" },
+												"message": { "type": "string" },
+												"data": {}
+											},
+											"required": ["defined", "code", "status", "message"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/show-consent-banner": {
+			"get": {
+				"operationId": "consent.showBanner",
+				"description": "Determines if a user should see a consent banner based on their location and applicable privacy regulations.\nThis endpoint performs the following checks:\n\n1. Detects the user's location using various header information:\n   - Cloudflare country headers\n   - Vercel IP country headers\n   - AWS CloudFront headers\n   - Custom country code headers\n\n2. Determines the applicable jurisdiction based on the location:\n   - GDPR (EU/EEA/UK)\n   - Swiss Data Protection Act\n   - LGPD (Brazil)\n   - PIPEDA (Canada)\n   - Australian Privacy Principles\n   - APPI (Japan)\n   - PIPA (South Korea)\n\n3. Returns detailed information about:\n   - Whether to show the consent banner\n   - The applicable jurisdiction and its requirements\n   - The user's detected location (country and region)\n\nUse this endpoint to implement geo-targeted consent banners and ensure compliance with regional privacy regulations.",
+				"tags": ["cookie-banner"],
+				"responses": {
+					"200": {
+						"description": "OK",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"showConsentBanner": { "type": "boolean" },
+										"jurisdiction": {
+											"type": "object",
+											"properties": {
+												"code": {
+													"enum": [
+														"GDPR",
+														"CH",
+														"BR",
+														"PIPEDA",
+														"AU",
+														"APPI",
+														"PIPA",
+														"NONE"
+													]
+												},
+												"message": { "type": "string" }
+											},
+											"required": ["code", "message"]
+										},
+										"location": {
+											"type": "object",
+											"properties": {
+												"countryCode": {
+													"anyOf": [{ "type": "null" }, { "type": "string" }]
+												},
+												"regionCode": {
+													"anyOf": [{ "type": "null" }, { "type": "string" }]
+												}
+											},
+											"required": ["countryCode", "regionCode"]
+										}
+									},
+									"required": ["showConsentBanner", "jurisdiction", "location"]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/consent/verify": {
+			"post": {
+				"operationId": "consent.verify",
+				"description": "Verifies if a user has given valid consent for a specific policy and domain.\nThis endpoint performs comprehensive consent verification by:\n\n1. Validating the subject's identity (using subjectId or externalSubjectId)\n2. Verifying the domain's existence and validity\n3. Checking if the specified policy exists and is active\n4. Validating that all required purposes have been consented to\n5. Ensuring the consent record is current and valid\n\nThe endpoint supports different types of consent verification:\n- Cookie banner consent verification\n- Privacy policy consent verification\n- Terms and conditions verification\n- Marketing communications consent verification\n- Age verification\n- Custom consent types\n\nUse this endpoint to ensure compliance with privacy regulations and to verify user consent before processing personal data.",
+				"tags": ["consent"],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"subjectId": { "type": "string" },
+									"externalSubjectId": { "type": "string" },
+									"domain": { "type": "string" },
+									"type": {
+										"enum": [
+											"cookie_banner",
+											"privacy_policy",
+											"dpa",
+											"terms_and_conditions",
+											"marketing_communications",
+											"age_verification",
+											"other"
+										]
+									},
+									"policyId": { "type": "string" },
+									"preferences": {
+										"type": "array",
+										"items": { "type": "string" }
+									}
+								},
+								"required": ["domain", "type"],
+								"additionalProperties": false
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "OK",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"isValid": { "type": "boolean" },
+										"reasons": {
+											"type": "array",
+											"items": { "type": "string" }
+										},
+										"consent": {
+											"type": "object",
+											"properties": {
+												"id": { "type": "string" },
+												"purposeIds": {
+													"type": "array",
+													"items": { "type": "string" }
+												}
+											},
+											"required": ["id", "purposeIds"]
+										}
+									},
+									"required": ["isValid"]
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "400",
+						"content": {
+							"application/json": {
+								"schema": {
+									"oneOf": [
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": true },
+												"code": {
+													"const": "COOKIE_BANNER_PREFERENCES_REQUIRED"
+												},
+												"status": { "const": 400 },
+												"message": {
+													"type": "string",
+													"default": "Preferences are required for cookie banner consent"
+												},
+												"data": {
+													"type": "object",
+													"properties": {
+														"type": { "const": "cookie_banner" }
+													},
+													"required": ["type"]
+												}
+											},
+											"required": [
+												"defined",
+												"code",
+												"status",
+												"message",
+												"data"
+											]
+										},
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": false },
+												"code": { "type": "string" },
+												"status": { "type": "number" },
+												"message": { "type": "string" },
+												"data": {}
+											},
+											"required": ["defined", "code", "status", "message"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "404",
+						"content": {
+							"application/json": {
+								"schema": {
+									"oneOf": [
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": true },
+												"code": { "const": "SUBJECT_NOT_FOUND" },
+												"status": { "const": 404 },
+												"message": {
+													"type": "string",
+													"default": "Subject not found"
+												},
+												"data": {
+													"type": "object",
+													"properties": {
+														"subjectId": { "type": "string" },
+														"externalSubjectId": { "type": "string" }
+													}
+												}
+											},
+											"required": [
+												"defined",
+												"code",
+												"status",
+												"message",
+												"data"
+											]
+										},
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": true },
+												"code": { "const": "DOMAIN_NOT_FOUND" },
+												"status": { "const": 404 },
+												"message": {
+													"type": "string",
+													"default": "Domain not found"
+												},
+												"data": {
+													"type": "object",
+													"properties": { "domain": { "type": "string" } },
+													"required": ["domain"]
+												}
+											},
+											"required": [
+												"defined",
+												"code",
+												"status",
+												"message",
+												"data"
+											]
+										},
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": true },
+												"code": { "const": "POLICY_NOT_FOUND" },
+												"status": { "const": 404 },
+												"message": {
+													"type": "string",
+													"default": "Policy not found or invalid"
+												},
+												"data": {
+													"type": "object",
+													"properties": {
+														"policyId": { "type": "string" },
+														"type": { "type": "string" }
+													},
+													"required": ["policyId", "type"]
+												}
+											},
+											"required": [
+												"defined",
+												"code",
+												"status",
+												"message",
+												"data"
+											]
+										},
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": true },
+												"code": { "const": "PURPOSES_NOT_FOUND" },
+												"status": { "const": 404 },
+												"message": {
+													"type": "string",
+													"default": "Could not find all specified purposes"
+												},
+												"data": {
+													"type": "object",
+													"properties": {
+														"preferences": {
+															"type": "array",
+															"items": { "type": "string" }
+														},
+														"foundPurposes": {
+															"type": "array",
+															"items": { "type": "string" }
+														}
+													},
+													"required": ["preferences", "foundPurposes"]
+												}
+											},
+											"required": [
+												"defined",
+												"code",
+												"status",
+												"message",
+												"data"
+											]
+										},
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": true },
+												"code": { "const": "NO_CONSENT_FOUND" },
+												"status": { "const": 404 },
+												"message": {
+													"type": "string",
+													"default": "No consent found for the given policy"
+												},
+												"data": {
+													"type": "object",
+													"properties": {
+														"policyId": { "type": "string" },
+														"subjectId": { "type": "string" },
+														"domainId": { "type": "string" }
+													},
+													"required": ["policyId", "subjectId", "domainId"]
+												}
+											},
+											"required": [
+												"defined",
+												"code",
+												"status",
+												"message",
+												"data"
+											]
+										},
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": false },
+												"code": { "type": "string" },
+												"status": { "type": "number" },
+												"message": { "type": "string" },
+												"data": {}
+											},
+											"required": ["defined", "code", "status", "message"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"422": {
+						"description": "422",
+						"content": {
+							"application/json": {
+								"schema": {
+									"oneOf": [
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": true },
+												"code": { "const": "INPUT_VALIDATION_FAILED" },
+												"status": { "const": 422 },
+												"message": {
+													"type": "string",
+													"default": "Invalid input parameters"
+												},
+												"data": {
+													"type": "object",
+													"properties": {
+														"formErrors": {
+															"type": "array",
+															"items": { "type": "string" }
+														},
+														"fieldErrors": {
+															"type": "object",
+															"additionalProperties": {
+																"type": "array",
+																"items": { "type": "string" }
+															}
+														}
+													},
+													"required": ["formErrors", "fieldErrors"]
+												}
+											},
+											"required": [
+												"defined",
+												"code",
+												"status",
+												"message",
+												"data"
+											]
+										},
+										{
+											"type": "object",
+											"properties": {
+												"defined": { "const": false },
+												"code": { "type": "string" },
+												"status": { "type": "number" },
+												"message": { "type": "string" },
+												"data": {}
+											},
+											"required": ["defined", "code", "status", "message"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/status": {
+			"get": {
+				"operationId": "meta.status",
+				"description": "Returns the current operational status and health metrics of the service.\nThis endpoint provides real-time information about:\n- Overall service status (ok/error)\n- Current API version\n- Server timestamp\n- Storage system status and availability\n- Client information (IP, User Agent, Region)\n\nUse this endpoint for health checks, monitoring, and service status verification.",
+				"tags": ["meta"],
+				"responses": {
+					"200": {
+						"description": "OK",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"status": { "enum": ["ok", "error"] },
+										"version": { "type": "string" },
+										"timestamp": { "type": "string", "format": "date-time" },
+										"storage": {
+											"type": "object",
+											"properties": {
+												"type": { "type": "string" },
+												"available": { "type": "boolean" }
+											},
+											"required": ["type", "available"]
+										},
+										"client": {
+											"type": "object",
+											"properties": {
+												"ip": {
+													"anyOf": [{ "type": "null" }, { "type": "string" }]
+												},
+												"userAgent": {
+													"anyOf": [{ "type": "null" }, { "type": "string" }]
+												},
+												"region": {
+													"type": "object",
+													"properties": {
+														"countryCode": {
+															"anyOf": [
+																{ "type": "null" },
+																{ "type": "string" }
+															]
+														},
+														"regionCode": {
+															"anyOf": [
+																{ "type": "null" },
+																{ "type": "string" }
+															]
+														}
+													},
+													"required": ["countryCode", "regionCode"]
+												}
+											},
+											"required": ["ip", "userAgent", "region"]
+										}
+									},
+									"required": [
+										"status",
+										"version",
+										"timestamp",
+										"storage",
+										"client"
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

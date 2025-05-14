@@ -1,0 +1,5 @@
+content/docs/(api)/**/*.mdx
+
+.source
+.next
+node_modules
